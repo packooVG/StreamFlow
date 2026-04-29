@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Streamflow · El Netflix de los Deportes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- HLS.js y Chromecast SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      font-family: 'Inter', sans-serif;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    /* Intro Netflix style */
+    .intro {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIntro 2.5s ease forwards;
+      pointer-events: none;
+    }
+
+    @keyframes fadeIntro {
+      0% { opacity: 1; }
+      70% { opacity: 1; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+
+    .intro-logo {
+      text-align: center;
+      animation: logoPop 1s ease-out;
+    }
+
+    @keyframes logoPop {
+      0% { transform: scale(0.5); opacity: 0; letter-spacing: 15px; }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; letter-spacing: normal; }
+    }
+
+    .intro-logo i {
+      font-size: 5rem;
+      background: linear-gradient(135deg, #e50914, #ff4d4d);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .intro-logo h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(135deg, #fff, #e50914);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .intro-logo p {
+      color: #e50914;
+      font-size: 0.7rem;
+      letter-spacing: 3px;
+      margin-top: 0.5rem;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #141414;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #e50914;
+      border-radius: 10px;
+    }
+
+    /* Navbar */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.7) 100%);
+      backdrop-filter: blur(16px);
+      padding: 0.7rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1000;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo i {
+      font-size: 1.8rem;
+      color: #e50914;
+    }
+
+    .logo span {
+      font-size: 1.3rem;
+      font-weight: 800;
+      background: linear-gradient(110deg, #fff, #e50914);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .nav-links a {
+      color: #ccc;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.85rem;
+      transition: 0.2s;
+    }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+      color: #e50914;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,0.08);
+      border-radius: 30px;
+      padding: 0.3rem 1rem;
+      gap: 8px;
+    }
+
+    .search-box input {
+      background: none;
+      border: none;
+      color: white;
+      padding: 0.4rem;
+      width: 170px;
+      outline: none;
+      font-size: 0.8rem;
+    }
+
+    .search-box input::placeholder {
+      color: #888;
+    }
+
+    .donate-dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .donate-btn {
+      background: linear-gradient(135deg, #e50914, #ff6b6b);
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 40px;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: 0.2s;
+    }
+
+    .donate-btn:hover {
+      transform: scale(1.02);
+      box-shadow: 0 0 15px rgba(229, 9, 20, 0.5);
+    }
+
+    .donate-options {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: #1e1e1e;
+      border-radius: 12px;
+      overflow: hidden;
+      min-width: 160px;
+      margin-top: 8px;
+      border: 1px solid #333;
+      z-index: 100;
+    }
+
+    .donate-dropdown:hover .donate-options {
+      display: block;
+    }
+
+    .donate-options a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0.8rem 1rem;
+      color: #fff;
+      text-decoration: none;
+      transition: 0.2s;
+      font-size: 0.8rem;
+    }
+
+    .donate-options a:hover {
+      background: #e50914;
+    }
+
+    /* Hero Player */
+    .hero {
+      position: relative;
+      height: 80vh;
+      min-height: 550px;
+      margin-top: 70px;
+      overflow: hidden;
+    }
+
+    .hero-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
+    }
+
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+      z-index: 2;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 3;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 2rem 3rem;
+      max-width: 55%;
+    }
+
+    .hero-badge {
+      background: #e50914;
+      width: fit-content;
+      padding: 0.2rem 1rem;
+      border-radius: 30px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .hero-badge i {
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .hero h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-meta {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.8rem;
+      color: #ddd;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .hero-viewers {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.7rem;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-play {
+      background: #fff;
+      color: #000;
+      border: none;
+      padding: 0.7rem 1.8rem;
+      border-radius: 40px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: 0.2s;
+    }
+
+    .btn-play:hover {
+      background: #e50914;
+      color: #fff;
+      transform: scale(1.02);
+    }
+
+    .btn-sound {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 0.7rem 1.5rem;
+      border-radius: 40px;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Fuentes flotantes estilo PirloTV */
+    .sources-float {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(12px);
+      border-radius: 50px;
+      padding: 0.4rem 1rem;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .source-option {
+      background: #2a2a2a;
+      border: none;
+      padding: 0.3rem 1rem;
+      border-radius: 30px;
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .source-option.active,
+    .source-option:hover {
+      background: #e50914;
+    }
+
+    /* Main content */
+    .main-content {
+      padding: 2rem 2rem 0 2rem;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .feed-container {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .live-section {
+      background: linear-gradient(135deg, #0a0a0a, #1a0a0a);
+      border-radius: 20px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      border: 1px solid rgba(229, 9, 20, 0.3);
+    }
+
+    .live-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+
+    .live-header i {
+      color: #e50914;
+      animation: pulse 1.5s infinite;
+    }
+
+    .live-header h2 {
+      font-size: 1.3rem;
+    }
+
+    .live-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+
+    .upcoming-section {
+      margin-top: 1rem;
+    }
+
+    .upcoming-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+
+    .upcoming-header i {
+      color: #f5a623;
+    }
+
+    .upcoming-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+
+    /* Tarjetas */
+    .card {
+      background: #141414;
+      border-radius: 14px;
+      overflow: hidden;
+      transition: all 0.25s ease;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: #e50914;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+    }
+
+    .card-img {
+      position: relative;
+      aspect-ratio: 16/9;
+      background: #0a0a0a;
+      overflow: hidden;
+    }
+
+    .card-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: 0.25s;
+    }
+
+    .card:hover .card-img img {
+      transform: scale(1.08);
+    }
+
+    .card-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: #e50914;
+      padding: 0.2rem 0.7rem;
+      border-radius: 20px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      z-index: 2;
+    }
+
+    .card-viewers {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      z-index: 2;
+    }
+
+    .card-info {
+      padding: 0.8rem;
+    }
+
+    .card-teams {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.4rem;
+    }
+
+    .card-team-name {
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .card-shield {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+    }
+
+    .card-vs {
+      text-align: center;
+      font-size: 0.6rem;
+      color: #e50914;
+      font-weight: 600;
+      margin: 0.2rem 0;
+    }
+
+    .card-league {
+      font-size: 0.65rem;
+      color: #aaa;
+      margin: 0.4rem 0 0.2rem;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .card-time {
+      font-size: 0.65rem;
+      color: #f5a623;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Modal - Reproductor Premium Netflix */
+    .modal-stream {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.98);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-stream.active {
+      display: flex;
+    }
+
+    .modal-container {
+      width: 95%;
+      max-width: 1300px;
+      background: #0a0a0a;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-header {
+      padding: 1rem 1.5rem;
+      background: #111;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      border-bottom: 1px solid #222;
+    }
+
+    .modal-teams {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .modal-teams img {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .modal-teams span {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .modal-vs {
+      color: #e50914;
+      font-weight: 800;
+      font-size: 1.1rem;
+      margin: 0 5px;
+    }
+
+    .modal-viewers {
+      background: #1a1a1a;
+      padding: 0.3rem 0.8rem;
+      border-radius: 30px;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .player-wrapper {
+      position: relative;
+      background: #000;
+    }
+
+    .modal-video {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #000;
+      outline: none;
+    }
+
+    .custom-controls {
+      background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+      padding: 1rem;
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+      position: relative;
+      z-index: 5;
+      margin-top: -60px;
+      pointer-events: auto;
+    }
+
+    .custom-btn {
+      background: rgba(30, 30, 30, 0.9);
+      backdrop-filter: blur(10px);
+      border: none;
+      padding: 0.5rem 1.2rem;
+      border-radius: 40px;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: 0.2s;
+    }
+
+    .custom-btn:hover {
+      background: #e50914;
+      transform: scale(1.02);
+    }
+
+    .refresh-btn {
+      background: rgba(30, 30, 30, 0.9);
+      backdrop-filter: blur(10px);
+      border: none;
+      padding: 0.5rem 1.2rem;
+      border-radius: 40px;
+      color: #f5a623;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: 0.2s;
+    }
+
+    .refresh-btn:hover {
+      background: #f5a623;
+      color: #000;
+      transform: scale(1.02);
+    }
+
+    .cast-btn {
+      background: rgba(30, 30, 30, 0.9);
+      backdrop-filter: blur(10px);
+      border: none;
+      padding: 0.5rem 1.2rem;
+      border-radius: 40px;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: 0.2s;
+    }
+
+    .cast-btn.casting {
+      background: #4285f4;
+      animation: pulse 1.5s infinite;
+    }
+
+    .modal-sources {
+      padding: 1rem 1.5rem;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      border-top: 1px solid #222;
+      background: #0a0a0a;
+    }
+
+    .modal-source-btn {
+      background: #1e1e1e;
+      border: none;
+      padding: 0.5rem 1.2rem;
+      border-radius: 30px;
+      color: #fff;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .modal-source-btn.active {
+      background: #e50914;
+    }
+
+    .modal-source-btn:hover {
+      background: #e50914;
+    }
+
+    .close-modal {
+      background: #1e1e1e;
+      border: none;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .close-modal:hover {
+      background: #e50914;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1e1e1e;
+      padding: 0.7rem 1.5rem;
+      border-radius: 40px;
+      font-size: 0.8rem;
+      transition: 0.2s;
+      z-index: 3000;
+      border-left: 3px solid #e50914;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.7rem;
+      color: #555;
+      border-top: 1px solid #1a1a1a;
+      margin-top: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      .hero-content {
+        padding: 1.2rem;
+        max-width: 95%;
+      }
+
+      .hero h1 {
+        font-size: 1.4rem;
+      }
+
+      .main-content {
+        padding: 1rem;
+      }
+
+      .live-grid,
+      .upcoming-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .custom-controls {
+        gap: 8px;
+      }
+
+      .custom-btn,
+      .refresh-btn,
+      .cast-btn {
+        padding: 0.3rem 0.8rem;
+        font-size: 0.65rem;
+      }
+
+      .modal-teams img {
+        width: 30px;
+        height: 30px;
+      }
+
+      .modal-teams span {
+        font-size: 0.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="intro" id="introScreen">
+  <div class="intro-logo">
+    <i class="fas fa-bolt"></i>
+    <h1>STREAMFLOW</h1>
+    <p>TODOS LOS DEPORTES · TODAS LAS LIGAS · EN VIVO</p>
+  </div>
+</div>
+
+<nav class="navbar">
+  <div class="logo">
+    <i class="fas fa-bolt"></i>
+    <span>STREAMFLOW</span>
+  </div>
+  <div class="nav-links">
+    <a href="#" class="active" data-filter="all">Inicio</a>
+    <a href="#" data-filter="live">En Vivo</a>
+    <a href="#" data-filter="upcoming">Próximos</a>
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Buscar equipo...">
+      <i class="fas fa-search" id="searchBtn" style="cursor: pointer;"></i>
+    </div>
+    <div class="donate-dropdown">
+      <button class="donate-btn"><i class="fas fa-heart"></i> Apoyar</button>
+      <div class="donate-options">
+        <a href="#" onclick="window.open('https://paypal.me/streamflow', '_blank'); return false;"><i class="fab fa-paypal"></i> PayPal</a>
+        <a href="#" onclick="window.open('https://patreon.com/streamflow', '_blank'); return false;"><i class="fab fa-patreon"></i> Patreon</a>
+        <a href="#" onclick="window.open('https://ko-fi.com/streamflow', '_blank'); return false;"><i class="fas fa-mug-hot"></i> Ko-fi</a>
+        <a href="#" onclick="window.open('https://buymeacoffee.com/streamflow', '_blank'); return false;"><i class="fas fa-coffee"></i> Buy Me a Coffee</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="hero" id="heroPlayer">
+  <video id="heroVideo" class="hero-video" autoplay muted playsinline></video>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-badge"><i class="fas fa-circle"></i> EN VIVO AHORA</div>
+    <h1 id="heroTitle">Cargando...</h1>
+    <div class="hero-meta" id="heroMeta"></div>
+    <div class="hero-buttons">
+      <button class="btn-play" id="heroExpandBtn"><i class="fas fa-expand"></i> Pantalla completa</button>
+      <button class="btn-sound" id="heroSoundBtn"><i class="fas fa-volume-up"></i> Sonido</button>
+    </div>
+  </div>
+  <div class="sources-float" id="heroSources"></div>
+</div>
+
+<main class="main-content">
+  <div class="feed-container" id="feedContainer"></div>
+</main>
+
+<footer class="footer">
+  <p>Streamflow — No alojamos ningún contenido, solo enlazamos fuentes públicas.</p>
+  <p style="margin-top: 0.5rem;">🔥 <span id="totalViewers">0</span> espectadores en vivo ahora mismo</p>
+</footer>
+
+<div class="modal-stream" id="streamModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div class="modal-teams">
+        <img id="modalHomeImg" src=""><span id="modalHomeName">Local</span>
+        <span class="modal-vs">VS</span>
+        <img id="modalAwayImg" src=""><span id="modalAwayName">Visitante</span>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <div class="modal-viewers" id="modalViewers"><i class="fas fa-eye"></i> <span>0</span> viendo</div>
+        <button class="close-modal" id="closeModalBtn"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="player-wrapper">
+      <video id="modalVideo" class="modal-video" controls playsinline></video>
+      <div class="custom-controls">
+        <button class="custom-btn" id="pipBtn"><i class="fas fa-tv"></i> Picture-in-Picture</button>
+        <button class="custom-btn" id="fullscreenModalBtn"><i class="fas fa-expand"></i> Pantalla completa</button>
+        <button class="refresh-btn" id="refreshStreamBtn"><i class="fas fa-sync-alt"></i> Refrescar</button>
+        <button class="cast-btn" id="castBtn"><i class="fas fa-chromecast"></i> Transmitir a TV</button>
+      </div>
+    </div>
+    <div class="modal-sources" id="modalSources"></div>
+  </div>
+</div>
+
+<div class="toast" id="toastMsg"></div>
+
+<script>
+  // ========== ESCUDOS OFICIALES ==========
+  const SHIELDS = {
+    'Real Madrid': 'https://cdn.freebiesupply.com/images/large/2x/real-madrid-logo.png',
+    'Barcelona': 'https://cdn.freebiesupply.com/images/large/2x/fc-barcelona-logo.png',
+    'Liverpool': 'https://cdn.freebiesupply.com/images/large/2x/liverpool-fc-logo.png',
+    'Arsenal': 'https://cdn.freebiesupply.com/images/large/2x/arsenal-fc-logo.png',
+    'Manchester City': 'https://cdn.freebiesupply.com/images/large/2x/manchester-city-logo.png',
+    'Chelsea': 'https://cdn.freebiesupply.com/images/large/2x/chelsea-fc-logo.png',
+    'Bayern Munich': 'https://cdn.freebiesupply.com/images/large/2x/bayern-munich-logo.png',
+    'Borussia Dortmund': 'https://cdn.freebiesupply.com/images/large/2x/borussia-dortmund-logo.png',
+    'PSG': 'https://cdn.freebiesupply.com/images/large/2x/paris-saint-germain-logo.png',
+    'Inter Milan': 'https://cdn.freebiesupply.com/images/large/2x/internazionale-milano-logo.png',
+    'AC Milan': 'https://cdn.freebiesupply.com/images/large/2x/ac-milan-logo.png',
+    'Juventus': 'https://cdn.freebiesupply.com/images/large/2x/juventus-fc-logo.png',
+    'Chivas': 'https://cdn.freebiesupply.com/images/large/2x/cd-guadalajara-logo.png',
+    'América': 'https://cdn.freebiesupply.com/images/large/2x/club-america-logo.png',
+    'Cruz Azul': 'https://cdn.freebiesupply.com/images/large/2x/cruz-azul-logo.png',
+    'Pumas': 'https://cdn.freebiesupply.com/images/large/2x/pumas-unam-logo.png',
+    'Tigres': 'https://cdn.freebiesupply.com/images/large/2x/tigres-uanl-logo.png',
+    'Monterrey': 'https://cdn.freebiesupply.com/images/large/2x/cf-monterrey-logo.png',
+    'Boca Juniors': 'https://cdn.freebiesupply.com/images/large/2x/boca-juniors-logo.png',
+    'River Plate': 'https://cdn.freebiesupply.com/images/large/2x/ca-river-plate-logo.png',
+    'Flamengo': 'https://cdn.freebiesupply.com/images/large/2x/flamengo-logo.png',
+    'Palmeiras': 'https://cdn.freebiesupply.com/images/large/2x/palmeiras-logo.png',
+    'Yankees': 'https://cdn.freebiesupply.com/images/large/2x/new-york-yankees-logo.png',
+    'Red Sox': 'https://cdn.freebiesupply.com/images/large/2x/boston-red-sox-logo.png',
+    'Dodgers': 'https://cdn.freebiesupply.com/images/large/2x/los-angeles-dodgers-logo.png',
+    'Lakers': 'https://cdn.freebiesupply.com/images/large/2x/los-angeles-lakers-logo.png',
+    'Warriors': 'https://cdn.freebiesupply.com/images/large/2x/golden-state-warriors-logo.png'
+  };
+
+  // ========== BASE DE DATOS DE EVENTOS ==========
+  let allEvents = [{
+      id: 1,
+      home_team: "Real Madrid",
+      away_team: "Barcelona",
+      league: "La Liga - El Clásico",
+      status: "LIVE",
+      utc_date: new Date().toISOString(),
+      streams: ["https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8"],
+      sport: "⚽ Fútbol",
+      viewers: 124500
+    },
+    {
+      id: 2,
+      home_team: "Chivas",
+      away_team: "América",
+      league: "Liga MX - Clásico Nacional",
+      status: "LIVE",
+      utc_date: new Date().toISOString(),
+      streams: ["https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"],
+      sport: "⚽ Fútbol",
+      viewers: 87500
+    },
+    {
+      id: 3,
+      home_team: "Yankees",
+      away_team: "Red Sox",
+      league: "MLB - Serie Regular",
+      status: "LIVE",
+      utc_date: new Date().toISOString(),
+      streams: ["https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"],
+      sport: "⚾ Béisbol",
+      viewers: 43200
+    },
+    {
+      id: 4,
+      home_team: "Lakers",
+      away_team: "Warriors",
+      league: "NBA - Playoffs",
+      status: "LIVE",
+      utc_date: new Date().toISOString(),
+      streams: ["https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"],
+      sport: "🏀 Basketball",
+      viewers: 98700
+    },
+    {
+      id: 5,
+      home_team: "Liverpool",
+      away_team: "Arsenal",
+      league: "Premier League",
+      status: "SCHEDULED",
+      utc_date: new Date(Date.now() + 2 * 3600000).toISOString(),
+      streams: [],
+      sport: "⚽ Fútbol",
+      viewers: 0
+    },
+    {
+      id: 6,
+      home_team: "Bayern Munich",
+      away_team: "Borussia Dortmund",
+      league: "Bundesliga",
+      status: "SCHEDULED",
+      utc_date: new Date(Date.now() + 3 * 3600000).toISOString(),
+      streams: [],
+      sport: "⚽ Fútbol",
+      viewers: 0
+    },
+    {
+      id: 7,
+      home_team: "PSG",
+      away_team: "Marseille",
+      league: "Ligue 1",
+      status: "SCHEDULED",
+      utc_date: new Date(Date.now() + 4 * 3600000).toISOString(),
+      streams: [],
+      sport: "⚽ Fútbol",
+      viewers: 0
+    },
+    {
+      id: 8,
+      home_team: "Inter Milan",
+      away_team: "AC Milan",
+      league: "Serie A - Derby",
+      status: "SCHEDULED",
+      utc_date: new Date(Date.now() + 5 * 3600000).toISOString(),
+      streams: [],
+      sport: "⚽ Fútbol",
+      viewers: 0
+    },
+    {
+      id: 9,
+      home_team: "Tomateros",
+      away_team: "Cañeros",
+      league: "LMP - Serie Final",
+      status: "SCHEDULED",
+      utc_date: new Date(Date.now() + 8 * 3600000).toISOString(),
+      streams: [],
+      sport: "⚾ Béisbol",
+      viewers: 0
+    },
+    {
+      id: 10,
+      home_team: "La Velada del Año",
+      away_team: "Evento Especial",
+      league: "Boxeo + Música",
+      status: "SCHEDULED",
+      utc_date: new Date(Date.now() + 72 * 3600000).toISOString(),
+      streams: [],
+      sport: "🥊 Evento",
+      viewers: 0
+    }
+  ];
+
+  let hlsHero = null;
+  let modalHls = null;
+  let currentHeroEvent = null;
+  let currentFilter = "all";
+  let currentModalVideo = null;
+  let currentModalStreamUrl = "";
+  let lastUsedStream = null;
+
+  // ========== CHROMECAST ==========
+  let castContext = null;
+  let castSession = null;
+
+  function initChromecast() {
+    if (typeof cast !== 'undefined' && cast.framework) {
+      castContext = cast.framework.CastContext.getInstance();
+      castContext.setOptions({
+        receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+        autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+      });
+      castContext.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED, (event) => {
+        if (event.sessionState === cast.framework.SessionState.SESSION_STARTED) {
+          castSession = castContext.getCurrentSession();
+          showToast('📡 Conectado a Chromecast');
+          const castBtn = document.getElementById('castBtn');
+          if (castBtn) castBtn.classList.add('casting');
+        } else if (event.sessionState === cast.framework.SessionState.SESSION_ENDED) {
+          castSession = null;
+          const castBtn = document.getElementById('castBtn');
+          if (castBtn) castBtn.classList.remove('casting');
+        }
+      });
+    }
+  }
+
+  function castToTV() {
+    if (!castContext) {
+      showToast('Chromecast no disponible en este navegador');
+      return;
+    }
+    if (castSession) {
+      const mediaInfo = new chrome.cast.media.MediaInfo(currentModalStreamUrl, 'video/mp4');
+      const request = new chrome.cast.media.LoadRequest(mediaInfo);
+      castSession.loadMedia(request).then(() => {
+        showToast('🎬 Transmitiendo a la tele');
+      }).catch(() => showToast('Error al transmitir'));
+    } else {
+      castContext.requestSession().then(() => {
+        showToast('Selecciona tu Chromecast');
+      }).catch(() => showToast('No se encontró Chromecast en la red'));
+    }
+  }
+
+  // ========== FUNCIONES AUXILIARES ==========
+  function getShield(team) {
+    return SHIELDS[team] || `https://placehold.co/28x28/e50914/white?text=${team.substring(0, 2)}`;
+  }
+
+  function formatViewers(num) {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
+    return num.toString();
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toastMsg');
+    toast.innerText = msg;
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+    setTimeout(() => toast.style.transform = 'translateX(-50%) translateY(80px)', 2000);
+  }
+
+  // ========== ACTUALIZAR CONTADORES ==========
+  function updateViewers() {
+    for (let event of allEvents) {
+      if (event.status === 'LIVE') {
+        const change = Math.floor(Math.random() * 2000) - 500;
+        event.viewers = Math.max(500, event.viewers + change);
+      }
+    }
+    renderFeed();
+    const totalViewers = allEvents.filter(e => e.status === 'LIVE').reduce((sum, e) => sum + (e.viewers || 0), 0);
+    document.getElementById('totalViewers').innerText = formatViewers(totalViewers);
+  }
+
+  // ========== RENDER FEED ==========
+  function renderFeed() {
+    const container = document.getElementById('feedContainer');
+    const liveEvents = allEvents.filter(e => e.status === 'LIVE');
+    const upcomingEvents = allEvents.filter(e => e.status !== 'LIVE');
+    upcomingEvents.sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date));
+
+    let html = '';
+    if (liveEvents.length > 0 && (currentFilter === 'all' || currentFilter === 'live')) {
+      html += `
+        <div class="live-section">
+          <div class="live-header">
+            <i class="fas fa-circle" style="font-size: 0.6rem;"></i>
+            <h2>EN VIVO AHORA</h2>
+            <span style="background: #e50914; padding: 0.1rem 0.5rem; border-radius: 20px; font-size: 0.7rem;">${liveEvents.length} partidos</span>
+          </div>
+          <div class="live-grid">
+            ${liveEvents.map(event => renderCard(event)).join('')}
+          </div>
+        </div>
+      `;
+    }
+    if (upcomingEvents.length > 0 && (currentFilter === 'all' || currentFilter === 'upcoming')) {
+      html += `
+        <div class="upcoming-section">
+          <div class="upcoming-header">
+            <i class="fas fa-calendar"></i>
+            <h2>PRÓXIMOS PARTIDOS</h2>
+            <span style="background: #333; padding: 0.1rem 0.5rem; border-radius: 20px; font-size: 0.7rem;">${upcomingEvents.length} eventos</span>
+          </div>
+          <div class="upcoming-grid">
+            ${upcomingEvents.map(event => renderCard(event)).join('')}
+          </div>
+        </div>
+      `;
+    }
+    container.innerHTML = html;
+    document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = parseInt(card.dataset.id);
+        const event = allEvents.find(e => e.id === id);
+        if (event) openModal(event);
+      });
+    });
+  }
+
+  function renderCard(event) {
+    const isLive = event.status === 'LIVE';
+    const eventDate = new Date(event.utc_date);
+    const timeText = isLive ? '🔴 EN VIVO' : eventDate.toLocaleTimeString('es-MX', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    return `
+      <div class="card" data-id="${event.id}">
+        <div class="card-img">
+          <img src="https://images.unsplash.com/photo-1522778119026-d647f0598c95?w=400" alt="">
+          <div class="card-badge">${isLive ? 'EN VIVO' : timeText}</div>
+          ${isLive ? `<div class="card-viewers"><i class="fas fa-eye"></i> ${formatViewers(event.viewers)}</div>` : ''}
+        </div>
+        <div class="card-info">
+          <div class="card-teams">
+            <span class="card-team-name">${event.home_team}</span>
+            <img class="card-shield" src="${getShield(event.home_team)}" onerror="this.src='https://placehold.co/28x28/e50914/white?text=?'">
+          </div>
+          <div class="card-vs">VS</div>
+          <div class="card-teams">
+            <span class="card-team-name">${event.away_team}</span>
+            <img class="card-shield" src="${getShield(event.away_team)}" onerror="this.src='https://placehold.co/28x28/e50914/white?text=?'">
+          </div>
+          <div class="card-league">${event.league}</div>
+          <div class="card-time">
+            <span>${timeText}</span>
+            ${isLive ? `<span><i class="fas fa-eye"></i> ${formatViewers(event.viewers)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ========== MODAL CON REPRODUCTOR PREMIUM ==========
+  function openModal(event) {
+    const streams = event.streams.length ? event.streams : ["https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8"];
+    currentModalStreamUrl = streams[0];
+    lastUsedStream = streams;
+    
+    const modal = document.getElementById('streamModal');
+    document.getElementById('modalHomeName').innerText = event.home_team;
+    document.getElementById('modalAwayName').innerText = event.away_team;
+    document.getElementById('modalHomeImg').src = getShield(event.home_team);
+    document.getElementById('modalAwayImg').src = getShield(event.away_team);
+    document.getElementById('modalViewers').innerHTML = `<i class="fas fa-eye"></i> ${formatViewers(event.viewers || 0)} viendo`;
+
+    const video = document.getElementById('modalVideo');
+    currentModalVideo = video;
+
+    if (Hls.isSupported()) {
+      if (modalHls) modalHls.destroy();
+      modalHls = new Hls();
+      modalHls.loadSource(currentModalStreamUrl);
+      modalHls.attachMedia(video);
+      modalHls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+    } else {
+      video.src = currentModalStreamUrl;
+      video.play();
+    }
+
+    const sourcesDiv = document.getElementById('modalSources');
+    sourcesDiv.innerHTML = streams.map((src, idx) => `
+      <button class="modal-source-btn ${idx === 0 ? 'active' : ''}" data-url="${src}">🔗 FUENTE ${idx + 1} (HD)</button>
+    `).join('');
+    
+    sourcesDiv.querySelectorAll('.modal-source-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sourcesDiv.querySelectorAll('.modal-source-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentModalStreamUrl = btn.dataset.url;
+        if (modalHls) {
+          modalHls.loadSource(currentModalStreamUrl);
+        } else {
+          video.src = currentModalStreamUrl;
+          video.play();
+        }
+      });
+    });
+    modal.classList.add('active');
+  }
+
+  function refreshStream() {
+    if (modalHls) {
+      modalHls.loadSource(currentModalStreamUrl);
+      showToast('🔄 Stream refrescado');
+    } else if (currentModalVideo) {
+      currentModalVideo.load();
+      currentModalVideo.play();
+      showToast('🔄 Stream refrescado');
+    }
+  }
+
+  function togglePictureInPicture() {
+    if (currentModalVideo && document.pictureInPictureEnabled) {
+      if (document.pictureInPictureElement) {
+        document.exitPictureInPicture();
+      } else {
+        currentModalVideo.requestPictureInPicture();
+      }
+    } else {
+      showToast('PiP disponible en la mayoría de navegadores');
+    }
+  }
+
+  // ========== HERO ==========
+  function updateHero() {
+    const liveEvents = allEvents.filter(e => e.status === 'LIVE');
+    if (liveEvents.length > 0) {
+      currentHeroEvent = liveEvents[0];
+      document.getElementById('heroTitle').innerText = `${currentHeroEvent.home_team} vs ${currentHeroEvent.away_team}`;
+      document.getElementById('heroMeta').innerHTML = `
+        <span><i class="fas fa-trophy"></i> ${currentHeroEvent.league}</span>
+        <span class="hero-viewers"><i class="fas fa-eye"></i> ${formatViewers(currentHeroEvent.viewers)} espectadores</span>
+      `;
+      const video = document.getElementById('heroVideo');
+      const streams = currentHeroEvent.streams;
+      if (streams.length > 0 && Hls.isSupported()) {
+        if (hlsHero) hlsHero.destroy();
+        hlsHero = new Hls();
+        hlsHero.loadSource(streams[0]);
+        hlsHero.attachMedia(video);
+      }
+      const heroSources = document.getElementById('heroSources');
+      if (streams.length > 0) {
+        heroSources.innerHTML = streams.map((src, idx) => `<button class="source-option ${idx === 0 ? 'active' : ''}" data-url="${src}">FUENTE ${idx + 1}</button>`).join('');
+        heroSources.querySelectorAll('.source-option').forEach(btn => {
+          btn.addEventListener('click', function() {
+            heroSources.querySelectorAll('.source-option').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            if (hlsHero) hlsHero.loadSource(this.dataset.url);
+            else video.src = this.dataset.url;
+          });
+        });
+      }
+    }
+  }
+
+  // ========== EVENTOS UI ==========
+  document.getElementById('heroExpandBtn')?.addEventListener('click', () => {
+    if (document.getElementById('heroPlayer').requestFullscreen) document.getElementById('heroPlayer').requestFullscreen();
+  });
+  
+  document.getElementById('heroSoundBtn')?.addEventListener('click', () => {
+    const video = document.getElementById('heroVideo');
+    video.muted = !video.muted;
+    document.getElementById('heroSoundBtn').innerHTML = video.muted ? '<i class="fas fa-volume-mute"></i> Silencio' : '<i class="fas fa-volume-up"></i> Sonido';
+  });
+  
+  document.getElementById('closeModalBtn')?.addEventListener('click', () => {
+    document.getElementById('streamModal').classList.remove('active');
+    if (modalHls) modalHls.destroy();
+  });
+  
+  document.getElementById('pipBtn')?.addEventListener('click', togglePictureInPicture);
+  document.getElementById('refreshStreamBtn')?.addEventListener('click', refreshStream);
+  document.getElementById('fullscreenModalBtn')?.addEventListener('click', () => {
+    const modalContainer = document.querySelector('.modal-container');
+    if (modalContainer.requestFullscreen) modalContainer.requestFullscreen();
+  });
+  document.getElementById('castBtn')?.addEventListener('click', castToTV);
+
+  // ========== BÚSQUEDA ==========
+  document.getElementById('searchBtn')?.addEventListener('click', () => {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    if (!query) return;
+    const found = allEvents.find(e => e.home_team.toLowerCase().includes(query) || e.away_team.toLowerCase().includes(query));
+    if (found) openModal(found);
+    else showToast('No se encontró el equipo');
+  });
+
+  // ========== FILTROS ==========
+  document.querySelectorAll('.nav-links a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.querySelectorAll('.nav-links a').forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      currentFilter = link.dataset.filter;
+      renderFeed();
+    });
+  });
+
+  // ========== INICIALIZAR ==========
+  setTimeout(() => {
+    const intro = document.getElementById('introScreen');
+    if (intro) intro.style.display = 'none';
+  }, 2500);
+  
+  initChromecast();
+  renderFeed();
+  updateHero();
+  updateViewers();
+  setInterval(() => {
+    updateViewers();
+    updateHero();
+  }, 5000);
+</script>
+</body>
+</html>
